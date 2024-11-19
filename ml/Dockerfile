@@ -20,4 +20,4 @@ COPY . /app/
 SHELL ["conda", "run", "-n", "map-of-music-ml", "/bin/bash", "-c"]
 
 # Set the default command to run the app inside the conda environment
-CMD ["conda", "run", "-n", "map-of-music-ml", "python", "spotify.py"]
+CMD ["conda", "run", "-n", "map-of-music-ml", "python", "main.py"]
