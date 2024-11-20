@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 def cosine_similarity(v1, v2):
     # Calculate the cosine similarity between two tracks
@@ -8,11 +9,9 @@ def cosine_similarity(v1, v2):
 def calculate_similarities(similarity_metric, feature_vectors):
     # Calculate the similarity between each pair of tracks in the list
     similarities = {}
-    for i, track1 in enumerate(feature_vectors):
+    for i, track1 in tqdm(enumerate(feature_vectors)):
         for j, track2 in enumerate(feature_vectors[i+1:], start=i+1):
-            if i != j:
-                similarity = similarity_metric(track1, track2)
-                similarities[(i, j)] = similarity
-                similarities[(j, i)] = similarity
+            similarity = similarity_metric(track1, track2)
+            similarities[(i, j)] = similarity
     return similarities
     

@@ -42,11 +42,12 @@ def create_node(driver, node_type, properties):
 
 
 def create_relationship(driver, node1_id, node2_id, relationship_type, properties):
-    # Use parameterized query to avoid injection and ensure proper property handling
     query = f"""
     MATCH (a {{id: $node1_id}}), (b {{id: $node2_id}})
-    MERGE (a)-[r:{relationship_type}]->(b)
-    SET r += $properties
+    OPTIONAL MATCH (a)-[r:{relationship_type}]-(b)  // Find any existing relationship, directionless
+    DELETE r  // Remove the existing relationship if it exists
+    MERGE (a)-[new_r:{relationship_type}]-(b)  // Create the new undirected relationship
+    SET new_r += $properties  // Set properties on the new relationship
     """
     
     with driver.session() as session:
