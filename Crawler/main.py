@@ -24,7 +24,7 @@ SEEDS = [
     "Phil Collins",
 ]
 
-NUM_SIMILAR_ARTISTS = 5
+NUM_SIMILAR_ARTISTS = 20
 
 DEPTH = 2
 
@@ -58,6 +58,20 @@ class LastFMDriver():
                     similarity_score = float(artist['match'])
                     similar_artists.append(Similarity(artist_name, name, similarity_score))
                 return similar_artists
+        return []
+    
+    def get_most_popular_artists(self, amount):
+        params = {
+            'method': 'chart.gettopartists',
+            'api_key': self.api_key,
+            'format': 'json',
+            'limit': amount
+        }
+        response = requests.get(self.base_url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            if 'artists' in data and 'artist' in data['artists']:
+                return [artist['name'] for artist in data['artists']['artist']]
         return []
 
 class PostgreDriver():
@@ -152,6 +166,10 @@ def crawl_artists(seeds, depth):
     
     postgres_driver.close()
 if __name__ == "__main__":
-    crawl_artists(SEEDS, DEPTH)
+    # get most popular artists from last fm and crawl their similar artists
+    lastfm_driver = LastFMDriver()
+    popular_artists = lastfm_driver.get_most_popular_artists(100)
+    print(f"Got {len(popular_artists)} popular artists from Last FM")
+    crawl_artists(popular_artists, DEPTH)
     
     
