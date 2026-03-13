@@ -10,12 +10,13 @@ interface Props {
 
 export default function MapCanvas({ artists, onSelectArtist }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const hoveredNode = useRef<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const graph = new Graph();
-
+    
     artists.forEach((artist) => {
       graph.addNode(String(artist.id), {
         x: artist.x,
@@ -26,16 +27,38 @@ export default function MapCanvas({ artists, onSelectArtist }: Props) {
       });
     });
 
-    const sigma = new Sigma(graph, containerRef.current, {
-        renderEdgeLabels: false,
-        stagePadding: 0,
-        labelColor: { color: "#ffffff" },
-        labelRenderedSizeThreshold: 3,
-    });
+    // Sigma settings
+    const sigmaSettings = {
+      renderEdgeLabels: false,
+      stagePadding: 0,
+      labelColor: { attribute: "hoverColor", color: "#fff" },
+      labelRenderedSizeThreshold: 0,
+      nodeReducer: (node, data) => {
+        if (node === hoveredNode.current) {
+              return {
+                ...data,
+                hoverColor: "#000000",
+              };
+        }
+        return data;
+      },
+    };
+
+    const sigma = new Sigma(graph, containerRef.current, sigmaSettings);
 
     sigma.on("clickNode", ({ node }) => {
       const artist = artists.find((a) => a.id === parseInt(node));
       if (artist) onSelectArtist(artist);
+    });
+
+    sigma.on("enterNode", ({ node }) => {
+      hoveredNode.current = node;
+      sigma.refresh();
+    });
+
+    sigma.on("leaveNode", () => {
+      hoveredNode.current = null;
+      sigma.refresh();
     });
 
     return () => sigma.kill();
