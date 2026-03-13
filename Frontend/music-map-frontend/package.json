@@ -10,12 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-sigma/core": "^5.0.6",
+    "@react-sigma/graph-search": "^5.0.6",
     "framer-motion": "^12.36.0",
     "graphology": "^0.26.0",
     "graphology-layout": "^0.6.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "sigma": "^3.0.2"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

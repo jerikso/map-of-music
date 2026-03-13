@@ -9,8 +9,12 @@ export default function App() {
   const [selected, setSelected] = useState<Artist | null>(null);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#070b14" }}>
-      <MapCanvas artists={artists} onSelectArtist={setSelected} />
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <MapCanvas
+        artists={artists}
+        selectedArtist={selected}
+        onSelectArtist={setSelected}
+      />
       {selected && (
         <div style={{
           position: "fixed", bottom: 24, left: 24,
