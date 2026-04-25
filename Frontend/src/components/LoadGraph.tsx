@@ -15,12 +15,18 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
   const hoveredNode = useRef<string | null>(null);
   const onSelectArtistRef = useRef(onSelectArtist);
   const artistsRef = useRef(artists);
+  const selectedArtistRef = useRef<Artist | null>(null);
 
   // keep refs up to date without triggering effects
   useEffect(() => {
     onSelectArtistRef.current = onSelectArtist;
     artistsRef.current = artists;
   });
+
+  useEffect(() => {
+    selectedArtistRef.current = selectedArtist;
+    sigma.refresh();
+  }, [selectedArtist]);
 
   // runs once — register events and settings
   useEffect(() => {
@@ -88,6 +94,20 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
         { duration: 500 }
       );
     }
+    sigma.setSetting("nodeReducer", (node: string, data: Record<string, unknown>) => {
+      const isHovered = node === hoveredNode.current;
+      const isSelected = node === String(selectedArtistRef.current?.id);
+
+      if (isHovered || isSelected) {
+        return {
+          ...data,
+          highlighted: true,
+          hoverColor: "#000000",
+        };
+      }
+      return data;
+    });
+
   }, [selectedArtist]);
 
   return null;

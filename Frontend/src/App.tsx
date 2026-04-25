@@ -14,6 +14,12 @@ export default function App() {
   const [minListeners, setMinListeners] = useState(0);
   const [activeGenres, setActiveGenres] = useState<Set<string>>(new Set());
 
+
+  const handleSelectArtist = (artist: Artist) => {
+    setSelected(null);
+    setTimeout(() => setSelected(artist), 0);
+  };
+
   const maxListeners = useMemo(
     () => Math.max(...artists.map(a => a.listeners ?? 0)),
     [artists]
@@ -29,11 +35,25 @@ export default function App() {
     [artists, minListeners, activeGenres]
   );
 
+  const availableGenres = useMemo(() => {
+    const genres = new Set<string>();
+    artists.forEach(a => a.genres?.forEach(g => genres.add(g.toLowerCase())));
+    return Array.from(genres).sort();
+  }, [artists]);
+
   const toggleGenre = (genre: string) => {
     setActiveGenres(prev => {
       const next = new Set(prev);
       if (next.has(genre)) next.delete(genre);
       else next.add(genre);
+      return next;
+    });
+  };
+
+  const removeGenre = (genre: string) => {
+    setActiveGenres(prev => {
+      const next = new Set(prev);
+      next.delete(genre);
       return next;
     });
   };
@@ -46,18 +66,21 @@ export default function App() {
       <MapCanvas
         artists={filteredArtists}
         selectedArtist={selected}
-        onSelectArtist={setSelected}
+        onSelectArtist={handleSelectArtist}
       />
       <SidePanel
         max={maxListeners}
         activeGenres={activeGenres}
+        availableGenres={availableGenres}
         onListenersChange={setMinListeners}
         onToggleGenre={toggleGenre}
+        onRemoveGenre={removeGenre}
       />
       {selected && (
         <ArtistPopup
           artist={selected}
           onClose={() => setSelected(null)}
+          onGenreClick={toggleGenre}
         />
       )}
     </div>

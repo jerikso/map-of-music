@@ -1,9 +1,9 @@
-import { SigmaContainer, ControlsContainer, ZoomControl } from "@react-sigma/core";
-import { GraphSearch } from "@react-sigma/graph-search";
+import { SigmaContainer } from "@react-sigma/core";
 import "@react-sigma/core/lib/style.css";
 import "@react-sigma/graph-search/lib/style.css";
 import LoadGraph from "./LoadGraph";
 import type { Artist } from "../types";
+import ArtistSearch from "./ArtistSearch";
 
 interface Props {
   artists: Artist[];
@@ -16,7 +16,9 @@ export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: P
     <SigmaContainer
       style={{ width: "100vw", height: "100vh", background: "#070b14" }}
       settings={{
-        labelColor: { color: "#ffffff" },
+        labelFont: "Outfit",
+        labelWeight: "600",
+        labelColor: { attribute: "hoverColor", color: "#ffffff" },
         labelRenderedSizeThreshold: 6,
         renderEdgeLabels: false,
         stagePadding: 0,
@@ -33,15 +35,7 @@ export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: P
           right: 24,
           zIndex: 100,
         }}>
-          <GraphSearch
-            type="nodes"
-            onChange={(value) => {
-              if (value?.type === "nodes") {
-                const artist = artists.find((a) => a.id === parseInt(value.id));
-                if (artist) onSelectArtist(artist);
-              }
-            }}
-          />
+          <ArtistSearch artists={artists} onSelectArtist={onSelectArtist} />
         </div>  
     </SigmaContainer>
   );

@@ -4,9 +4,10 @@ import { getGenreColor } from "../utils/genreColors";
 interface Props {
   artist: Artist;
   onClose: () => void;
+  onGenreClick: (genre: string) => void;
 }
 
-export default function ArtistPopup({ artist, onClose }: Props) {
+export default function ArtistPopup({ artist, onClose, onGenreClick }: Props) {
   const format = (n: number) =>
     n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` :
     n >= 1_000 ? `${(n / 1_000).toFixed(0)}K` : `${n}`;
@@ -71,8 +72,9 @@ export default function ArtistPopup({ artist, onClose }: Props) {
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {artist.genres.slice(0, 6).map(genre => (
-              <span
+              <button
                 key={genre}
+                onClick={() => onGenreClick(genre.toLowerCase())}
                 style={{
                   padding: "3px 10px",
                   borderRadius: 999,
@@ -81,10 +83,11 @@ export default function ArtistPopup({ artist, onClose }: Props) {
                   background: `${getGenreColor([genre])}22`,
                   color: getGenreColor([genre]),
                   border: `1px solid ${getGenreColor([genre])}44`,
+                  cursor: "pointer",
                 }}
               >
                 {genre}
-              </span>
+              </button>
             ))}
           </div>
         </div>
