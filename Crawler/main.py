@@ -60,15 +60,36 @@ class LastFMDriver():
             "api_key": self.api_key,
             "format": "json",
         }
-        response = requests.get(self.base_url, params=params)
-        data = response.json().get("artist", {})
-        stats = data.get("stats", {})
-        tags = data.get("tags", {}).get("tag", [])
-        return {
-            "listeners": int(stats.get("listeners", 0)),
-            "playcount": int(stats.get("playcount", 0)),
-            "genres": [tag["name"] for tag in tags],
-        }
+        retries = 3
+        for attempt in range(retries):
+            try:
+                response = requests.get(self.base_url, params=params)
+                
+                if response.status_code == 429:
+                    wait = 5 * (attempt + 1)
+                    print(f"Rate limited, waiting {wait}s before retry...")
+                    sleep(wait)
+                    continue
+
+                if response.status_code != 200 or not response.text:
+                    print(f"Failed to get info for {artist_name}: status {response.status_code}")
+                    return {"listeners": 0, "playcount": 0, "genres": []}
+
+                data = response.json().get("artist", {})
+                stats = data.get("stats", {})
+                tags = data.get("tags", {}).get("tag", [])
+                return {
+                    "listeners": int(stats.get("listeners", 0)),
+                    "playcount": int(stats.get("playcount", 0)),
+                    "genres": [tag["name"] for tag in tags],
+                }
+
+            except Exception as e:
+                print(f"Error getting info for {artist_name} (attempt {attempt + 1}): {e}")
+                sleep(2)
+
+        print(f"Giving up on {artist_name} after {retries} attempts")
+        return {"listeners": 0, "playcount": 0, "genres": []}
 
 class PostgreDriver():
     def __init__(self):
@@ -122,9 +143,9 @@ class PostgreDriver():
                 INSERT INTO artists (name, listeners, playcount, genres)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (name) DO UPDATE
-                    SET listeners = EXCLUDED.listeners,
-                        playcount = EXCLUDED.playcount,
-                        genres = EXCLUDED.genres
+                    SET listeners = COALESCE(EXCLUDED.listeners, artists.listeners),
+                        playcount = COALESCE(EXCLUDED.playcount, artists.playcount),
+                        genres = COALESCE(EXCLUDED.genres, artists.genres)
                 RETURNING id;
             ''', (name, listeners, playcount, genres))
             result = cursor.fetchone()
@@ -140,17 +161,15 @@ class PostgreDriver():
             ''', (artist_1_id, artist_2_id, similarity_score))
             self.conn.commit()
 
+    def get_unenriched_artists(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT id, name FROM artists WHERE listeners IS NULL")
+            return cursor.fetchall()
+
     def close(self):
         self.conn.close()
 
-def crawl_artists(seeds, depth):
-    lastfm_driver = LastFMDriver()
-    postgres_driver = PostgreDriver()
-
-    postgres_driver.create_artists_table()
-    postgres_driver.create_similarities_table()
-    postgres_driver.initialize_schema()
-
+def crawl_artists(seeds, depth, lastfm_driver, postgres_driver):
     visited = set()
     queue = [(seed, 0) for seed in seeds]
 
@@ -181,12 +200,33 @@ def crawl_artists(seeds, depth):
                 postgres_driver.insert_similarity(artist_id, similar_artist_id, similarity.similarity_score)
             queue.append((similarity.artist_2, current_depth + 1))
 
-        sleep(0.2)
+        sleep(0.3)
 
-    postgres_driver.close()
+def enrich_missing_artists(postgres_driver: PostgreDriver, lastfm_driver: LastFMDriver):
+    artists = postgres_driver.get_unenriched_artists()
+    print(f"Enriching {len(artists)} missing artists...")
+
+    for i, (artist_id, artist_name) in enumerate(artists):
+        print(f"[{i+1}/{len(artists)}] {artist_name}")
+        info = lastfm_driver.get_artist_info(artist_name)
+        postgres_driver.insert_artist(
+            artist_name,
+            listeners=info["listeners"],
+            playcount=info["playcount"],
+            genres=info["genres"],
+        )
+        sleep(0.3)
+
+    print("Done enriching!")
 
 if __name__ == "__main__":
     lastfm_driver = LastFMDriver()
-    popular_artists = lastfm_driver.get_most_popular_artists(20)
-    print(f"Got {len(popular_artists)} popular artists from Last FM")
-    crawl_artists(popular_artists, DEPTH)
+    postgres_driver = PostgreDriver()
+
+    postgres_driver.create_artists_table()
+    postgres_driver.create_similarities_table()
+    postgres_driver.initialize_schema()
+
+    enrich_missing_artists(postgres_driver, lastfm_driver)
+
+    postgres_driver.close()
