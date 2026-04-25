@@ -3,6 +3,8 @@ import { useSigma } from "@react-sigma/core";
 import Graph from "graphology";
 import type { Artist } from "../types";
 
+const MAX_ARTISTS = 1000;
+
 interface Props {
   artists: Artist[];
   selectedArtist: Artist | null;
@@ -17,7 +19,7 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
   useEffect(() => {
     const graph = new Graph();
 
-    artists.forEach((artist) => {
+    artists.slice(0, MAX_ARTISTS).forEach((artist) => {
       graph.addNode(String(artist.id), {
         x: artist.x,
         y: -artist.y,

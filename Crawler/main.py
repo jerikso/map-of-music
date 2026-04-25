@@ -1,39 +1,18 @@
-# Make requests to Last FM, search artist name and get similar artists
-
 import os
+from time import sleep
 from dotenv import load_dotenv
-
 import requests
-
 import psycopg2
 
-SEEDS = [
-    "Radiohead",
-    "Opeth",
-    "Muse",
-    "Porcupine Tree",
-    "Steven Wilson",
-    "Sleep Token",
-    "Bad Omens",
-    "Yasin",
-    "Coldplay",
-    "Luidji",
-    "Thirty Seconds to Mars",
-    "Katatonia",
-    "Fleetwood Mac",
-    "Phil Collins",
-]
-
+DEPTH = 1
 NUM_SIMILAR_ARTISTS = 20
-
-DEPTH = 2
 
 class Similarity:
     def __init__(self, artist_1, artist_2, similarity_score):
         self.artist_1 = artist_1
         self.artist_2 = artist_2
         self.similarity_score = similarity_score
-        
+
 class LastFMDriver():
     def __init__(self):
         load_dotenv()
@@ -59,7 +38,7 @@ class LastFMDriver():
                     similar_artists.append(Similarity(artist_name, name, similarity_score))
                 return similar_artists
         return []
-    
+
     def get_most_popular_artists(self, amount):
         params = {
             'method': 'chart.gettopartists',
@@ -74,13 +53,30 @@ class LastFMDriver():
                 return [artist['name'] for artist in data['artists']['artist']]
         return []
 
+    def get_artist_info(self, artist_name: str) -> dict:
+        params = {
+            "method": "artist.getinfo",
+            "artist": artist_name,
+            "api_key": self.api_key,
+            "format": "json",
+        }
+        response = requests.get(self.base_url, params=params)
+        data = response.json().get("artist", {})
+        stats = data.get("stats", {})
+        tags = data.get("tags", {}).get("tag", [])
+        return {
+            "listeners": int(stats.get("listeners", 0)),
+            "playcount": int(stats.get("playcount", 0)),
+            "genres": [tag["name"] for tag in tags],
+        }
+
 class PostgreDriver():
     def __init__(self):
         self.conn = psycopg2.connect(
             dbname=os.getenv("POSTGRES_DB"),
             user=os.getenv("POSTGRES_USER"),
             password=os.getenv("POSTGRES_PASSWORD"),
-            host="localhost",
+            host="db",
             port=5432
         )
 
@@ -89,11 +85,14 @@ class PostgreDriver():
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS artists (
                     id SERIAL PRIMARY KEY,
-                    name VARCHAR(255) UNIQUE NOT NULL
+                    name VARCHAR(255) UNIQUE NOT NULL,
+                    listeners BIGINT,
+                    playcount BIGINT,
+                    genres TEXT[]
                 );
             ''')
             self.conn.commit()
-    
+
     def create_similarities_table(self):
         with self.conn.cursor() as cursor:
             cursor.execute('''
@@ -108,18 +107,30 @@ class PostgreDriver():
                 );
             ''')
             self.conn.commit()
-    
-    def insert_artist(self, name):
+
+    def initialize_schema(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute("""
+                ALTER TABLE artists ALTER COLUMN listeners TYPE BIGINT;
+                ALTER TABLE artists ALTER COLUMN playcount TYPE BIGINT;
+            """)
+        self.conn.commit()
+
+    def insert_artist(self, name, listeners=None, playcount=None, genres=None):
         with self.conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO artists (name) VALUES (%s)
-                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                INSERT INTO artists (name, listeners, playcount, genres)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (name) DO UPDATE
+                    SET listeners = EXCLUDED.listeners,
+                        playcount = EXCLUDED.playcount,
+                        genres = EXCLUDED.genres
                 RETURNING id;
-            ''', (name,))
+            ''', (name, listeners, playcount, genres))
             result = cursor.fetchone()
             self.conn.commit()
             return result[0] if result else None
-    
+
     def insert_similarity(self, artist_1_id, artist_2_id, similarity_score):
         with self.conn.cursor() as cursor:
             cursor.execute('''
@@ -128,48 +139,54 @@ class PostgreDriver():
                 ON CONFLICT (artist_1_id, artist_2_id) DO NOTHING;
             ''', (artist_1_id, artist_2_id, similarity_score))
             self.conn.commit()
-    
+
     def close(self):
         self.conn.close()
-        
+
 def crawl_artists(seeds, depth):
     lastfm_driver = LastFMDriver()
     postgres_driver = PostgreDriver()
-    
+
     postgres_driver.create_artists_table()
     postgres_driver.create_similarities_table()
-    
+    postgres_driver.initialize_schema()
+
     visited = set()
     queue = [(seed, 0) for seed in seeds]
-    
+
     while queue:
         artist_name, current_depth = queue.pop(0)
-        
-        print(f"Crawling: {artist_name} at depth {current_depth}")
-        
+
         if artist_name in visited or current_depth > depth:
             continue
-        
+
         visited.add(artist_name)
-        
-        artist_id = postgres_driver.insert_artist(artist_name)
-        
+
+        print(f"Crawling: {artist_name} at depth {current_depth}")
+
+        info = lastfm_driver.get_artist_info(artist_name)
+        artist_id = postgres_driver.insert_artist(
+            artist_name,
+            listeners=info["listeners"],
+            playcount=info["playcount"],
+            genres=info["genres"],
+        )
+
         similar_artists = lastfm_driver.get_similar_artists(artist_name)
-        
         print(f"Found {len(similar_artists)} similar artists for {artist_name}")
-        
+
         for similarity in similar_artists:
             similar_artist_id = postgres_driver.insert_artist(similarity.artist_2)
             if artist_id and similar_artist_id:
                 postgres_driver.insert_similarity(artist_id, similar_artist_id, similarity.similarity_score)
             queue.append((similarity.artist_2, current_depth + 1))
-    
+
+        sleep(0.2)
+
     postgres_driver.close()
+
 if __name__ == "__main__":
-    # get most popular artists from last fm and crawl their similar artists
     lastfm_driver = LastFMDriver()
-    popular_artists = lastfm_driver.get_most_popular_artists(100)
+    popular_artists = lastfm_driver.get_most_popular_artists(20)
     print(f"Got {len(popular_artists)} popular artists from Last FM")
     crawl_artists(popular_artists, DEPTH)
-    
-    
