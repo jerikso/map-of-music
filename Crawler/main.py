@@ -1,10 +1,11 @@
+import heapq
 import os
 from time import sleep
 from dotenv import load_dotenv
 import requests
 import psycopg2
 
-DEPTH = 1
+DEPTH = 2
 NUM_SIMILAR_ARTISTS = 20
 
 class Similarity:
@@ -161,29 +162,40 @@ class PostgreDriver():
             ''', (artist_1_id, artist_2_id, similarity_score))
             self.conn.commit()
 
-    def get_unenriched_artists(self):
+    def get_visited_artists(self) -> set:
         with self.conn.cursor() as cursor:
-            cursor.execute("SELECT id, name FROM artists WHERE listeners IS NULL")
-            return cursor.fetchall()
+            cursor.execute("SELECT name FROM artists WHERE listeners IS NOT NULL")
+            return {row[0] for row in cursor.fetchall()}
+    
 
     def close(self):
         self.conn.close()
 
-def crawl_artists(seeds, depth, lastfm_driver, postgres_driver):
-    visited = set()
-    queue = [(seed, 0) for seed in seeds]
+def crawl_artists_popularity_first(seeds, depth, lastfm_driver, postgres_driver):
+    postgres_driver.create_artists_table()
+    postgres_driver.create_similarities_table()
+    postgres_driver.initialize_schema()
 
-    while queue:
-        artist_name, current_depth = queue.pop(0)
+    # load already visited artists from DB
+    visited = postgres_driver.get_visited_artists()
+    print(f"Resuming from {len(visited)} already crawled artists")
+
+    heap = []
+    for seed in seeds:
+        if seed not in visited:
+            info = lastfm_driver.get_artist_info(seed)
+            heapq.heappush(heap, (-info["listeners"], 0, seed, info))
+
+    while heap:
+        neg_listeners, current_depth, artist_name, info = heapq.heappop(heap)
 
         if artist_name in visited or current_depth > depth:
             continue
 
         visited.add(artist_name)
 
-        print(f"Crawling: {artist_name} at depth {current_depth}")
+        print(f"[{len(visited)}] Crawling: {artist_name} ({-neg_listeners:,} listeners) at depth {current_depth}")
 
-        info = lastfm_driver.get_artist_info(artist_name)
         artist_id = postgres_driver.insert_artist(
             artist_name,
             listeners=info["listeners"],
@@ -192,41 +204,55 @@ def crawl_artists(seeds, depth, lastfm_driver, postgres_driver):
         )
 
         similar_artists = lastfm_driver.get_similar_artists(artist_name)
-        print(f"Found {len(similar_artists)} similar artists for {artist_name}")
+        print(f"  Found {len(similar_artists)} similar artists")
 
         for similarity in similar_artists:
-            similar_artist_id = postgres_driver.insert_artist(similarity.artist_2)
-            if artist_id and similar_artist_id:
-                postgres_driver.insert_similarity(artist_id, similar_artist_id, similarity.similarity_score)
-            queue.append((similarity.artist_2, current_depth + 1))
+            if similarity.artist_2 not in visited:
+                # fetch info immediately so we can prioritize by popularity
+                similar_info = lastfm_driver.get_artist_info(similarity.artist_2)
+                similar_artist_id = postgres_driver.insert_artist(
+                    similarity.artist_2,
+                    listeners=similar_info["listeners"],
+                    playcount=similar_info["playcount"],
+                    genres=similar_info["genres"],
+                )
+                if artist_id and similar_artist_id:
+                    postgres_driver.insert_similarity(artist_id, similar_artist_id, similarity.similarity_score)
+                heapq.heappush(heap, (-similar_info["listeners"], current_depth + 1, similarity.artist_2, similar_info))
+            
+        sleep(0.2)
 
-        sleep(0.3)
-
-def enrich_missing_artists(postgres_driver: PostgreDriver, lastfm_driver: LastFMDriver):
-    artists = postgres_driver.get_unenriched_artists()
-    print(f"Enriching {len(artists)} missing artists...")
-
-    for i, (artist_id, artist_name) in enumerate(artists):
-        print(f"[{i+1}/{len(artists)}] {artist_name}")
-        info = lastfm_driver.get_artist_info(artist_name)
-        postgres_driver.insert_artist(
-            artist_name,
-            listeners=info["listeners"],
-            playcount=info["playcount"],
-            genres=info["genres"],
-        )
-        sleep(0.3)
-
-    print("Done enriching!")
+    postgres_driver.close()
 
 if __name__ == "__main__":
     lastfm_driver = LastFMDriver()
     postgres_driver = PostgreDriver()
 
-    postgres_driver.create_artists_table()
-    postgres_driver.create_similarities_table()
-    postgres_driver.initialize_schema()
+    # global popular artists
+    popular_artists = lastfm_driver.get_most_popular_artists(50)
 
-    enrich_missing_artists(postgres_driver, lastfm_driver)
+    # genre-specific seeds to ensure diversity
+    genre_seeds = [
+        # prog metal
+        "Opeth", "Tool", "Porcupine Tree", "Dream Theater", "Meshuggah",
+        # jazz
+        "Miles Davis", "John Coltrane", "Bill Evans",
+        # classical
+        "Bach", "Beethoven", "Mozart",
+        # electronic
+        "Aphex Twin", "Burial", "Boards of Canada",
+        # hip-hop
+        "Kendrick Lamar", "MF DOOM", "Earl Sweatshirt",
+        # folk
+        "Nick Drake", "Elliott Smith", "Iron & Wine",
+        # metal
+        "Gojira", "Mastodon", "Baroness",
+        # french rap
+        "Nekfeu", "Damso", "Lomepal",
+        # swedish
+        "Robyn", "Avicii", "Håkan Hellström",
+    ]
 
-    postgres_driver.close()
+    all_seeds = list(set(popular_artists + genre_seeds))
+    print(f"Crawling {len(all_seeds)} seeds")
+    crawl_artists_popularity_first(all_seeds, DEPTH, lastfm_driver, postgres_driver)
