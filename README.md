@@ -40,10 +40,12 @@ map-of-music is a web application that helps users discover and explore similari
 Requires Docker. From the root directory:
 
 ```bash
-sudo docker compose up -d db        # start the database
-sudo docker compose up --build crawler      # crawl artist data from Last.fm
-sudo docker compose up --build similaritymap  # compute UMAP coordinates
-sudo docker compose up --build api          # start the API
+# Run whole stack
+sudo docker compose up --build -d
+
+# Run map generation
+docker compose --profile tools run crawler
+docker compose --profile tools run similaritymap
 ```
 
 ### Frontend
