@@ -1,4 +1,4 @@
-{$SITE_ADDRESS:http://localhost} {
+:80 {
     reverse_proxy frontend:80 
 
     handle_path /api/* {
