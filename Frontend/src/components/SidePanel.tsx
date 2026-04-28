@@ -39,7 +39,7 @@ export default function SidePanel({
     : [];
 
   return (
-    <div style={{
+    <div className="side-panel" style={{
       position: "fixed",
       top: 24,
       left: 24,

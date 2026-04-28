@@ -29,14 +29,14 @@ export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: P
         selectedArtist={selectedArtist}
         onSelectArtist={onSelectArtist}
       />
-      <div style={{
+      <div className="artist-search-wrapper" style={{
           position: "absolute",
           top: 24,
           right: 24,
           zIndex: 100,
         }}>
           <ArtistSearch artists={artists} onSelectArtist={onSelectArtist} />
-        </div>  
+        </div>
     </SigmaContainer>
   );
 }

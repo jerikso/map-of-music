@@ -166,3 +166,52 @@ code {
   margin-top: 24px !important;
   margin-right: 24px !important;
 }
+
+.artist-search {
+  width: 240px;
+}
+
+.side-panel {
+  width: 240px;
+}
+
+.artist-popup {
+  width: 280px;
+}
+
+@media (max-width: 768px) {
+  .artist-search-wrapper,
+  .artist-search {
+    position: fixed !important;
+    top: 16px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(92vw, 420px) !important;
+  }
+
+  .artist-search input {
+    font-size: 14px;
+  }
+
+  .side-panel {
+    position: fixed !important;
+    bottom: 24px !important;
+    left: 16px !important;
+    top: auto !important;
+    width: min(45vw, 240px) !important;
+    max-height: calc(60vh);
+    overflow-y: auto;
+  }
+
+  .artist-popup {
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 16px !important;
+    left: auto !important;
+    top: auto !important;
+    width: min(45vw, 280px) !important;
+    max-height: calc(60vh);
+    overflow-y: auto;
+  }
+}

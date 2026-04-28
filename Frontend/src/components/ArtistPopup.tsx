@@ -13,7 +13,7 @@ export default function ArtistPopup({ artist, onClose, onGenreClick }: Props) {
     n >= 1_000 ? `${(n / 1_000).toFixed(0)}K` : `${n}`;
 
   return (
-    <div style={{
+    <div className="artist-popup" style={{
       position: "fixed",
       bottom: 24,
       right: 24,

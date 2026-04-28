@@ -24,7 +24,7 @@ export default function ArtistSearch({ artists, onSelectArtist }: Props) {
   };
 
   return (
-    <div style={{
+    <div className="artist-search" style={{
       position: "absolute",
       top: 24,
       right: 24,
