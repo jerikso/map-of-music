@@ -24,26 +24,13 @@ def get_conn():
         port=5432
     )
 
-@app.get("/api/map")
+@app.get("/map")
 def get_map():
     conn = get_conn()
-    with conn.cursor() as cursor:
-        cursor.execute("""
-            SELECT id, name, x, y, listeners, genres
-            FROM artists
-            WHERE x IS NOT NULL
-        """)
-        rows = cursor.fetchall()
-    conn.close()
-
-    return [
-        {
-            "id": row[0],
-            "name": row[1],
-            "x": row[2],
-            "y": row[3],
-            "listeners": row[4],
-            "genres": row[5],
-        }
-        for row in rows
-    ]
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, name, x, y, listeners, genres FROM artists WHERE x IS NOT NULL")
+            rows = cursor.fetchall()
+        return [{"id": r[0], "name": r[1], "x": r[2], "y": r[3], "listeners": r[4], "genres": r[5]} for r in rows]
+    finally:
+        conn.close() # This ensures the connection is freed up even if an error occurs

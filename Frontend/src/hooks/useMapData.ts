@@ -7,7 +7,7 @@ export function useMapData() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:3001/api/map")
+    fetch("/api/map")
       .then((res) => res.json())
       .then((data) => {
         setArtists(data);

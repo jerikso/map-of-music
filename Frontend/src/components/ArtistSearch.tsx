@@ -10,7 +10,7 @@ interface Props {
 
 export default function ArtistSearch({ artists, onSelectArtist }: Props) {
   const [search, setSearch] = useState("");
-  const sigma = useSigma();
+  useSigma();
 
   const results = search.trim()
     ? artists.filter(a =>
