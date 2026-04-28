@@ -1,6 +1,8 @@
 # map-of-music
 
-map-of-music is a web application that helps users discover and explore similarities between music artists using an interactive map. It leverages the **Last.fm API** for data, **UMAP** for dimensionality reduction, and **PostgreSQL** for storage.
+https://music.jonathanerikson.com/
+
+map-of-music is a web application that helps users discover and explore similarities between music artists using an interactive map. It leverages the **Last.fm API** for data, **UMAP** for dimensionality reduction, and **PostgreSQL** for storage. Frontend is build in React + Typescript with FastAPI.
 
 ## Features
 - **Music Discovery**: Find similar artists based on Last.fm similarity scores.
