@@ -62,7 +62,6 @@ export default function LoadGraph({ artists, similarities, selectedArtist, onSel
       });
     });
 
-    // add edges hidden by default
     similarities.forEach((sim) => {
       const source = String(sim.artist1Id);
       const target = String(sim.artist2Id);
@@ -80,6 +79,19 @@ export default function LoadGraph({ artists, similarities, selectedArtist, onSel
     });
 
     sigma.setGraph(graph);
+
+    // restore edges for selected artist
+    const selectedId = selectedArtistRef.current
+      ? String(selectedArtistRef.current.id)
+      : null;
+
+    if (selectedId) {
+      graph.edges().forEach(edge => {
+        const [source, target] = graph.extremities(edge);
+        const isConnected = source === selectedId || target === selectedId;
+        graph.setEdgeAttribute(edge, "hidden", !isConnected);
+      });
+    }
   }, [sigma, artists, similarities]);
 
   // update edges and node reducer when selected artist changes
