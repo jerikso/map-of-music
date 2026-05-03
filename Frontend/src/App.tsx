@@ -9,7 +9,7 @@ import ArtistPopup from "./components/ArtistPopup";
 
 
 export default function App() {
-  const { artists, loading, error } = useMapData();
+  const { artists, similarities, loading, error } = useMapData();
   const [selected, setSelected] = useState<Artist | null>(null);
   const [minListeners, setMinListeners] = useState(0);
   const [activeGenres, setActiveGenres] = useState<Set<string>>(new Set());
@@ -65,6 +65,7 @@ export default function App() {
     <div style={{ width: "100vw", height: "100vh" }}>
       <MapCanvas
         artists={filteredArtists}
+        similarities={similarities}
         selectedArtist={selected}
         onSelectArtist={handleSelectArtist}
       />

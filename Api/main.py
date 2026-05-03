@@ -34,3 +34,23 @@ def get_map():
         return [{"id": r[0], "name": r[1], "x": r[2], "y": r[3], "listeners": r[4], "genres": r[5]} for r in rows]
     finally:
         conn.close() # This ensures the connection is freed up even if an error occurs
+
+@app.get("/similarities")
+def get_similarities():
+    conn = get_conn()
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT artist_1_id, artist_2_id, similarity_score
+            FROM similarities
+        """)
+        rows = cursor.fetchall()
+    conn.close()
+
+    return [
+        {
+            "artist1Id": row[0],
+            "artist2Id": row[1],
+            "score": row[2],
+        }
+        for row in rows
+    ]

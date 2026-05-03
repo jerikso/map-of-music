@@ -7,4 +7,7 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["python", "main.py"]
+RUN python -m compileall .
+
+ENTRYPOINT ["python", "main.py"]
+CMD ["--method", "umap"]

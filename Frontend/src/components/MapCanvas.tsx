@@ -2,16 +2,17 @@ import { SigmaContainer } from "@react-sigma/core";
 import "@react-sigma/core/lib/style.css";
 import "@react-sigma/graph-search/lib/style.css";
 import LoadGraph from "./LoadGraph";
-import type { Artist } from "../types";
+import type { Artist, Similarity } from "../types";
 import ArtistSearch from "./ArtistSearch";
 
 interface Props {
   artists: Artist[];
+  similarities: Similarity[];
   selectedArtist: Artist | null;
   onSelectArtist: (artist: Artist) => void;
 }
 
-export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: Props) {
+export default function MapCanvas({ artists, similarities, selectedArtist, onSelectArtist }: Props) {
   return (
     <SigmaContainer
       style={{ width: "100vw", height: "100vh", background: "#070b14" }}
@@ -26,6 +27,7 @@ export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: P
     >
       <LoadGraph
         artists={artists}
+        similarities={similarities}
         selectedArtist={selectedArtist}
         onSelectArtist={onSelectArtist}
       />
@@ -36,7 +38,7 @@ export default function MapCanvas({ artists, selectedArtist, onSelectArtist }: P
           zIndex: 100,
         }}>
           <ArtistSearch artists={artists} onSelectArtist={onSelectArtist} />
-        </div>
+      </div>
     </SigmaContainer>
   );
 }

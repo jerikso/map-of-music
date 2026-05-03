@@ -17,3 +17,9 @@ export interface MapData {
   artists: Artist[];
   similarities: Similarity[];
 }
+
+export interface Similarity {
+  artist1Id: number;
+  artist2Id: number;
+  score: number;
+}

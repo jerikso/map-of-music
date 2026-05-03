@@ -1,16 +1,17 @@
 import { useEffect, useRef } from "react";
 import { useSigma } from "@react-sigma/core";
 import Graph from "graphology";
-import type { Artist } from "../types";
+import type { Artist, Similarity } from "../types";
 import { getGenreColor } from "../utils/genreColors";
 
 interface Props {
   artists: Artist[];
+  similarities: Similarity[];
   selectedArtist: Artist | null;
   onSelectArtist: (artist: Artist) => void;
 }
 
-export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: Props) {
+export default function LoadGraph({ artists, similarities, selectedArtist, onSelectArtist }: Props) {
   const sigma = useSigma();
   const hoveredNode = useRef<string | null>(null);
   const onSelectArtistRef = useRef(onSelectArtist);
@@ -23,20 +24,8 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
     artistsRef.current = artists;
   });
 
-  useEffect(() => {
-    selectedArtistRef.current = selectedArtist;
-    sigma.refresh();
-  }, [selectedArtist]);
-
   // runs once — register events and settings
   useEffect(() => {
-    sigma.setSetting("nodeReducer", (node: string, data: Record<string, unknown>) => {
-      if (node === hoveredNode.current) {
-        return { ...data, hoverColor: "#000000" };
-      }
-      return data;
-    });
-
     sigma.setSetting("labelColor", { attribute: "hoverColor", color: "#ffffff" });
 
     sigma.on("enterNode", ({ node }) => {
@@ -52,18 +41,10 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
     sigma.on("clickNode", ({ node }) => {
       const artist = artistsRef.current.find((a) => a.id === parseInt(node));
       if (artist) onSelectArtistRef.current(artist);
-
-      const nodePosition = sigma.getNodeDisplayData(node);
-      if (nodePosition) {
-        sigma.getCamera().animate(
-          { x: nodePosition.x, y: nodePosition.y, ratio: 0.2 },
-          { duration: 500 }
-        );
-      }
     });
   }, [sigma]);
 
-  // runs when artists change — rebuild graph
+  // rebuild graph when artists or similarities change
   useEffect(() => {
     const graph = new Graph();
 
@@ -81,10 +62,51 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
       });
     });
 
-    sigma.setGraph(graph);
-  }, [sigma, artists]);
+    // add edges hidden by default
+    similarities.forEach((sim) => {
+      const source = String(sim.artist1Id);
+      const target = String(sim.artist2Id);
+      if (
+        graph.hasNode(source) &&
+        graph.hasNode(target) &&
+        !graph.hasEdge(source, target)
+      ) {
+        graph.addEdge(source, target, {
+          size: sim.score * 2,
+          color: "#38bdf8",
+          hidden: true,
+        });
+      }
+    });
 
-  // runs when selected artist changes — pan to node
+    sigma.setGraph(graph);
+  }, [sigma, artists, similarities]);
+
+  // update edges and node reducer when selected artist changes
+  useEffect(() => {
+    selectedArtistRef.current = selectedArtist;
+    const graph = sigma.getGraph();
+    const selectedId = selectedArtist ? String(selectedArtist.id) : null;
+
+    graph.edges().forEach(edge => {
+      const [source, target] = graph.extremities(edge);
+      const isConnected = selectedId !== null && (source === selectedId || target === selectedId);
+      graph.setEdgeAttribute(edge, "hidden", !isConnected);
+    });
+
+    sigma.setSetting("nodeReducer", (node: string, data: Record<string, unknown>) => {
+      const isHovered = node === hoveredNode.current;
+      const isSelected = node === String(selectedArtistRef.current?.id);
+      if (isHovered || isSelected) {
+        return { ...data, highlighted: true, hoverColor: "#000000" };
+      }
+      return data;
+    });
+
+    sigma.refresh();
+  }, [selectedArtist]);
+
+  // pan to selected artist
   useEffect(() => {
     if (!selectedArtist) return;
     const nodePosition = sigma.getNodeDisplayData(String(selectedArtist.id));
@@ -94,20 +116,6 @@ export default function LoadGraph({ artists, selectedArtist, onSelectArtist }: P
         { duration: 500 }
       );
     }
-    sigma.setSetting("nodeReducer", (node: string, data: Record<string, unknown>) => {
-      const isHovered = node === hoveredNode.current;
-      const isSelected = node === String(selectedArtistRef.current?.id);
-
-      if (isHovered || isSelected) {
-        return {
-          ...data,
-          highlighted: true,
-          hoverColor: "#000000",
-        };
-      }
-      return data;
-    });
-
   }, [selectedArtist]);
 
   return null;
